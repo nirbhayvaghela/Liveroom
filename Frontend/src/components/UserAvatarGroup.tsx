@@ -1,17 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-interface User {
-  id: string;
-  name: string;
-  avatar?: string;
-  isOnline: boolean;
-}
 
 interface UserAvatarGroupProps {
-  users: User[];
+  users: any[];
   maxUsers?: number;
 }
 
@@ -44,16 +39,16 @@ const UserAvatarGroup: React.FC<UserAvatarGroupProps> = ({ users, maxUsers = 5 }
   return (
     <TooltipProvider>
       <div className="flex -space-x-2 overflow-hidden animate-fade-in">
-        {displayUsers.map((user) => (
+        {displayUsers?.map((user) => (
           <Tooltip key={user.id}>
             <TooltipTrigger asChild>
               <div className="relative">
                 <Avatar className="border-2 border-background h-10 w-10 transition-transform hover:translate-y-[-5px]">
-                  {user.avatar ? (
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                  {user.image ? (
+                    <AvatarImage src={user.image} alt={user.user_name} />
                   ) : (
-                    <AvatarFallback className={getRandomColor(user.name)}>
-                      {getInitials(user.name)}
+                    <AvatarFallback className={getRandomColor(user.user_name)}>
+                      {getInitials(user.user_name)}
                     </AvatarFallback>
                   )}
                 </Avatar>
@@ -63,7 +58,7 @@ const UserAvatarGroup: React.FC<UserAvatarGroupProps> = ({ users, maxUsers = 5 }
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{user.name}</p>
+              <p>{user.user_name}</p>
             </TooltipContent>
           </Tooltip>
         ))}

@@ -12,18 +12,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "./ThemeToggle";
+import { useApi } from "@/hooks/useApi";
+import { LocalStorageGetItem, LocalStorageSetItem } from "@/utils/helpers";
+import socket from "@/utils/socket";
+import { useNavigate } from "react-router-dom";
 
 interface JoinRoomFormProps {
-  onJoin: (roomCode: string, username: string) => void;
+  onJoin?: (roomCode: string, username: string) => void;
 }
 
 const JoinRoomForm: React.FC<JoinRoomFormProps> = ({ onJoin }) => {
+  const naviagte = useNavigate();
   const [roomCode, setRoomCode] = useState("");
   const [username, setUsername] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  // const [isLoading, setIsLoading] = useState(false);
+  const { loading: isLoading, addToRoom } = useApi();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!roomCode.trim()) {
@@ -44,13 +50,19 @@ const JoinRoomForm: React.FC<JoinRoomFormProps> = ({ onJoin }) => {
       return;
     }
 
-    setIsLoading(true);
-
-    // Simulate loading
-    setTimeout(() => {
+    const res = await addToRoom(roomCode, username);
+    console.log(res)
+    if(res?.data?.data) {
       onJoin(roomCode, username);
-      setIsLoading(false);
-    }, 1000);
+      LocalStorageSetItem("userData", res?.data?.data);
+      // socket.emit("join-room", roomCode, username);
+    } else {
+      toast({
+        title: "Error",
+        description: res?.response?.data.message ?? "Failed to join the room. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -117,6 +129,10 @@ const JoinRoomForm: React.FC<JoinRoomFormProps> = ({ onJoin }) => {
                 type="submit"
                 className="w-full bg-liveroom-purple hover:bg-liveroom-purple-dark transition-all duration-200"
                 disabled={isLoading}
+                // onClick={() => {
+                //   if (isLoading) return;
+                //   setIsLoading(true);
+                // }}
               >
                 {isLoading ? (
                   <>
@@ -152,7 +168,7 @@ const JoinRoomForm: React.FC<JoinRoomFormProps> = ({ onJoin }) => {
 
         <p className="mt-6 text-center text-sm text-gray-400">
           Don&apos;t have a room code?{" "}
-          <a href="#" className="text-[#9061F9] hover:underline">
+          <a href="/create-room" className="text-[#9061F9] hover:underline">
             Create your own room
           </a>{" "}
           to get started.
