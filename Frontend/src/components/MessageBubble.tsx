@@ -22,7 +22,6 @@ interface MessageBubbleProps {
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
-  console.log(message,"message")
   const getInitials = (name: string) =>
     name
       .split(" ")

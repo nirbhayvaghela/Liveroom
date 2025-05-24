@@ -53,13 +53,11 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
     try {
       // Upload media files first if any
       const uploadedMediaUrls = [];
-      console.log(mediaFiles, "cjhec");
       if (mediaFiles.length > 0) {
         const formData = new FormData();
         formData.append("media", mediaFiles[0].file);
 
         const res = await uploadFile(formData);
-        console.log(res?.data?.files.url, "cjeck");
         if (res?.data?.files.url) {
           uploadedMediaUrls.push({
             url: res?.data?.files.url,
@@ -260,7 +258,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
     const userData = LocalStorageGetItem("userData");
     if (userData?.roomId && userData?.user_name) {
       socket.emit("join-room", userData?.roomId, userData?.user_name);
-      console.log("Joined room");
     }
   }, []);
 
