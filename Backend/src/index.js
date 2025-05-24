@@ -5,6 +5,8 @@ import prisma from "./lib/db.js";
 import dotenv from "dotenv";
 import http from "http";
 import { Server } from "socket.io";
+import { upload } from "./middleware/multer.middleware.js";
+import { uploadOnCloudinary } from "./utils/cloudinary.js";
 
 const app = express();
 dotenv.config();
@@ -53,17 +55,25 @@ io.on("connection", (socket) => {
 
   socket.on("send-message", async (message) => {
     const roomId = socket.data.roomId;
-    if (roomId) {
+    if (!roomId) {
+      console.log("User not in a room, message not sent");
+      return;
+    }
+
+    try {
       const sender = await prisma.user.findUnique({
         where: { id: message.senderId },
       });
-      if (!sender) {
-        throw new Error("Sender not found");
-      }
 
+      if (!sender) {
+        socket.emit("message-error", "Sender not found");
+        return;
+      }
+      // Create message in database
       const newMessage = await prisma.message.create({
         data: {
-          content: message.content,
+          content: message.content || "",
+          media: message.media ? JSON.stringify(message.media) : null, // Store media as JSON
           roomId,
           senderId: sender.id,
         },
@@ -71,13 +81,19 @@ io.on("connection", (socket) => {
           sender: true,
         },
       });
+      // Parse media back to object for response
+      if (newMessage.media) {
+        newMessage.media = JSON.parse(newMessage.media);
+      }
 
       // Remove user from typing when they send a message
       removeUserFromTyping(socket, roomId);
 
+      // Emit to all users in the room
       io.to(roomId).emit("receive-message", newMessage);
-    } else {
-      console.log("User not in a room, message not sent");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      socket.emit("message-error", "Failed to send message");
     }
   });
 
@@ -105,7 +121,7 @@ io.on("connection", (socket) => {
     const roomId = socket.data.roomId;
     const user = socket.data.user;
 
-    if (user) {
+    if (user?.user_name) {
       await prisma.user.update({
         where: { user_name: user.user_name },
         data: { isOnline: false },
@@ -205,23 +221,22 @@ function broadcastTypingUpdate(roomId, excludeSocketId) {
   io.to(roomId).emit("typing-update", { typingUsers: typingUsersList });
 }
 
-// Existing API routes...
+// API routes...
 app.post("/create-room", async (req, res) => {
   const { name } = req.body;
+
   if (!name) {
-    return res.status(400).json({ error: "Name is required" });
+    return res.status(400).json({ message: "Name is required" });
   }
 
-  const isRoomNameExits = prisma.room.findUnique({
-    where: {
-      name,
-    },
+  const isRoomNameExists = await prisma.room.findUnique({
+    where: { name },
   });
 
-  if (!isRoomNameExits) {
-    return res
-      .status(400)
-      .json({ error: "Please chhose another room name,It is already exits." });
+  if (isRoomNameExists) {
+    return res.status(400).json({
+      message: "Please choose another room name, this name is already used.",
+    });
   }
 
   const newUser = await prisma.room.create({
@@ -232,8 +247,8 @@ app.post("/create-room", async (req, res) => {
   });
 
   return res.json({
-    message: "Room created Successfully.",
-    data: { ...newUser },
+    message: "Room created successfully.",
+    data: newUser,
   });
 });
 
@@ -241,7 +256,7 @@ app.post("/update-room-user", async (req, res) => {
   const { name, room_id, mode } = req.body;
 
   if (!name || !room_id || ![1, 2].includes(mode)) {
-    return res.status(400).json({ error: "Missing or invalid parameters" });
+    return res.status(400).json({ message: "Missing or invalid parameters" });
   }
 
   const room = await prisma.room.findUnique({
@@ -250,7 +265,7 @@ app.post("/update-room-user", async (req, res) => {
   });
 
   if (!room) {
-    return res.status(404).json({ error: "Room not found" });
+    return res.status(404).json({ message: "Room not found" });
   }
 
   if (mode === 1) {
@@ -267,12 +282,18 @@ app.post("/update-room-user", async (req, res) => {
       user = await prisma.user.update({
         where: { user_name: name },
         data: { roomId: room.room_id },
+        include:{
+          rooms: true
+        }
       });
     } else {
       user = await prisma.user.create({
         data: {
           user_name: name,
           roomId: room.room_id,
+        },
+        include: {
+          rooms: true,
         },
       });
     }
@@ -290,7 +311,7 @@ app.post("/update-room-user", async (req, res) => {
     });
 
     if (!user || user.roomId !== room.room_id) {
-      return res.status(404).json({ error: "User not found in this room" });
+      return res.status(404).json({ message: "User not found in this room" });
     }
 
     await prisma.user.update({
@@ -308,7 +329,7 @@ app.get("/list-group-members", async (req, res) => {
   const { room_id } = req.query;
 
   if (!room_id) {
-    return res.status(400).json({ error: "room_id is required" });
+    return res.status(400).json({ message: "room_id is required" });
   }
 
   const room = await prisma.room.findUnique({
@@ -327,7 +348,7 @@ app.get("/list-group-members", async (req, res) => {
   });
 
   if (!room) {
-    return res.status(404).json({ error: "Room not found" });
+    return res.status(404).json({ message: "Room not found" });
   }
 
   res.json({
@@ -344,24 +365,52 @@ app.get("/list-chat", async (req, res) => {
   const { room_id } = req.query;
 
   if (!room_id) {
-    return res.status(400).json({ error: "room_id is required" });
+    return res.status(400).json({ message: "room_id is required" });
   }
 
-  const messages = await prisma.message.findMany({
-    where: { roomId: room_id.toString() },
-    include: {
-      sender: true,
-    },
-  });
+  try {
+    const messages = await prisma.message.findMany({
+      where: { roomId: room_id.toString() },
+      include: {
+        sender: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
 
-  if (!messages) {
-    return res.status(404).json({ error: "Room not found" });
+    // Parse media JSON for each message
+    const messagesWithMedia = messages.map((message) => ({
+      ...message,
+      media: message.media ? JSON.parse(message.media) : null,
+    }));
+
+    res.json({
+      message: "Room messages retrieved successfully",
+      data: messagesWithMedia,
+    });
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    res.status(500).json({ message: "Failed to fetch messages" });
   }
+});
 
-  res.json({
-    message: "Room messages retrieved successfully",
-    data: messages,
-  });
+app.post("/upload", upload.single("media"), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file || file.length === 0) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+    const fileUrl = await uploadOnCloudinary(file.path);
+
+    res.status(200).json({
+      success: true,
+      files: fileUrl,
+    });
+  } catch (error) {
+    console.error("Upload error:", error);
+    res.status(500).json({ message: "Failed to upload files" });
+  }
 });
 
 server.listen(3000, () => {

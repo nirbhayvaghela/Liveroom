@@ -22,6 +22,7 @@ interface MessageBubbleProps {
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+  console.log(message,"message")
   const getInitials = (name: string) =>
     name
       .split(" ")
@@ -57,13 +58,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           isCurrentUser ? "items-end" : "items-start"
         }`}
       >
-        <div className="flex items-center gap-2 mb-1">
+        <div className=" flex items-center gap-2 mb-1">
           <span
             className={`text-xs font-medium ${
               isCurrentUser ? "order-last" : ""
             }`}
           >
-            {message?.sender.name}
+            {message?.sender.user_name}
           </span>
           <span className="text-xs text-gray-500">
             {format(message.createdAt, "h:mm a")}
@@ -71,9 +72,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         </div>
 
         <div
-          className={
-            isCurrentUser ? "message-bubble-user" : "message-bubble-other"
-          }
+          className={`px-3 py-2 rounded-lg text-white break-words max-w-[80%] ${
+            isCurrentUser
+              ? "bg-liveroom-purple self-end"
+              : "bg-gray-700 self-start"
+          }`}
         >
           {message?.content}
 

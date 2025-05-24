@@ -2,39 +2,28 @@
 
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getInitials, getRandomColor } from "@/utils/helpers";
 
 interface UserAvatarGroupProps {
   users: any[];
   maxUsers?: number;
 }
 
-const UserAvatarGroup: React.FC<UserAvatarGroupProps> = ({ users, maxUsers = 5 }) => {
+const UserAvatarGroup: React.FC<UserAvatarGroupProps> = ({
+  users,
+  maxUsers = 5,
+}) => {
   const displayUsers = users.slice(0, maxUsers);
   const remainingCount = users.length - maxUsers;
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
-  const getRandomColor = (name: string) => {
-    const colors = [
-      "bg-liveroom-purple text-white",
-      "bg-liveroom-blue text-white",
-      "bg-liveroom-green text-white",
-      "bg-liveroom-red text-white",
-    ];
-    
-    // Simple hash function to consistently assign same color to same user
-    const hash = name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
+
 
   return (
     <TooltipProvider>
@@ -71,7 +60,9 @@ const UserAvatarGroup: React.FC<UserAvatarGroupProps> = ({ users, maxUsers = 5 }
               </Avatar>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{remainingCount} more user{remainingCount !== 1 ? 's' : ''}</p>
+              <p>
+                {remainingCount} more user{remainingCount !== 1 ? "s" : ""}
+              </p>
             </TooltipContent>
           </Tooltip>
         )}

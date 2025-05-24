@@ -9,6 +9,7 @@ export interface MediaFile {
   type: string;
   url: string;
   thumbnailUrl?: string;
+  file: File
 }
 
 interface MediaPreviewProps {

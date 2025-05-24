@@ -8,10 +8,11 @@ export function useApi() {
   const addToRoom = async (room_id: string, name: string) => {
     setLoading(true);
     try {
-      const res = await axios.post(
-        `${BACKEND_URL}/update-room-user`,
-        { room_id, name, mode: 1 }
-      );
+      const res = await axios.post(`${BACKEND_URL}/update-room-user`, {
+        room_id,
+        name,
+        mode: 1,
+      });
       return res;
     } catch (err) {
       return err;
@@ -23,10 +24,11 @@ export function useApi() {
   const removeFromRoom = async (room_id: string, name: string) => {
     setLoading(true);
     try {
-      const res = await axios.post(
-        `${BACKEND_URL}/update-room-user`,
-        { room_id, name, mode: 2 }
-      );
+      const res = await axios.post(`${BACKEND_URL}/update-room-user`, {
+        room_id,
+        name,
+        mode: 2,
+      });
       return res;
     } catch (err) {
       return err;
@@ -67,14 +69,11 @@ export function useApi() {
     } finally {
       setLoading(false);
     }
-  }
+  };
   const createRoom = async (name: string) => {
     setLoading(true);
     try {
-      const res = await axios.post(
-        `${BACKEND_URL}/create-room`,
-        { name }
-      );
+      const res = await axios.post(`${BACKEND_URL}/create-room`, { name });
       setLoading(false);
       return res;
     } catch (error) {
@@ -85,5 +84,27 @@ export function useApi() {
     }
   };
 
-  return { createRoom, addToRoom, removeFromRoom, getRoomUsers, getRoomChat, loading };
+  const uploadFile = async (body: FormData) => {
+    setLoading(true);
+    try {
+      const res = await axios.post(`${BACKEND_URL}/upload`, body);
+      setLoading(false);
+      return res;
+    } catch (error) {
+      setLoading(false);
+      return error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    uploadFile,
+    createRoom,
+    addToRoom,
+    removeFromRoom,
+    getRoomUsers,
+    getRoomChat,
+    loading,
+  };
 }

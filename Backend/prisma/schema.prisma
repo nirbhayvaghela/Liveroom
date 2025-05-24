@@ -35,12 +35,24 @@ model User {
   Message   Message[]
 }
 
+// model Message {
+//   id        String   @id @default(cuid())
+//   content   String
+//   room      Room     @relation("RoomMessages", fields: [roomId], references: [room_id])
+//   roomId    String
+//   sender    User     @relation(fields: [senderId], references: [id])
+//   senderId  String
+//   createdAt DateTime @default(now())
+// }
+
 model Message {
   id        String   @id @default(cuid())
-  content   String
-  room      Room     @relation("RoomMessages", fields: [roomId], references: [room_id])
+  content   String? // Make content optional since media-only messages are possible
+  media     String?  // JSON string to store media URLs and metadata
   roomId    String
-  sender    User     @relation(fields: [senderId], references: [id])
   senderId  String
   createdAt DateTime @default(now())
+  // updatedAt DateTime @updatedAt
+  room      Room     @relation("RoomMessages", fields: [roomId], references: [room_id])
+  sender    User     @relation(fields: [senderId], references: [id])
 }

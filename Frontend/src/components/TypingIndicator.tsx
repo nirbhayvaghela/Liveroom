@@ -19,7 +19,7 @@ const TypingIndicator: React.FC<TypingIndicatorProps> = ({
         <div className="h-2 w-2 rounded-full bg-liveroom-gray animate-bounce-dot-2"></div>
         <div className="h-2 w-2 rounded-full bg-liveroom-gray animate-bounce-dot-3"></div>
       </div>
-      <span className="italic">{username} is typing...</span>
+      <span className="italic">{username}</span>
     </div>
   );
 };

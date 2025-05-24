@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -8,7 +7,11 @@ import { Image, Send, ArrowLeft } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useApi } from "@/hooks/useApi";
 import socket from "@/utils/socket";
-import { LocalStorageGetItem } from "@/utils/helpers";
+import {
+  getInitials,
+  getRandomColor,
+  LocalStorageGetItem,
+} from "@/utils/helpers";
 import { FiClipboard, FiCheck } from "react-icons/fi";
 import MediaPreview, { MediaFile } from "@/components/MediaPreview";
 import { Loader } from "@/components/ui/loader";
@@ -25,6 +28,7 @@ interface ChatRoomProps {
 }
 
 const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
+  const roomDetails = LocalStorageGetItem("userData")?.rooms;
   const [roomUsers, setRoomUsers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -40,26 +44,56 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
   const lastInputTimeRef = useRef<number>(0);
   const isMobile = useIsMobile();
 
-  const { getRoomUsers, getRoomChat } = useApi();
+  const { getRoomUsers, getRoomChat, uploadFile } = useApi();
 
   // Handle sending a message
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!newMessage.trim() && mediaFiles.length === 0) return;
 
-    const newMsg = {
-      content: newMessage.trim(),
-      sender: username,
-      isCurrentUser: true,
-      senderId: LocalStorageGetItem("userData")?.id,
-    };
+    try {
+      // Upload media files first if any
+      const uploadedMediaUrls = [];
+      console.log(mediaFiles, "cjhec");
+      if (mediaFiles.length > 0) {
+        const formData = new FormData();
+        formData.append("media", mediaFiles[0].file);
 
-    setMessages((prevMessages) => [...prevMessages, newMsg]);
-    socket.emit("send-message", newMsg);
-    setNewMessage("");
-    setMediaFiles([]);
-    
-    // Stop typing when message is sent
-    handleStopTyping();
+        const res = await uploadFile(formData);
+        console.log(res?.data?.files.url, "cjeck");
+        if (res?.data?.files.url) {
+          uploadedMediaUrls.push({
+            url: res?.data?.files.url,
+            type: mediaFiles[0].type,
+            name: mediaFiles[0].name,
+          });
+        }
+      }
+      // Create message object
+      const newMsg = {
+        content: newMessage.trim(),
+        media: uploadedMediaUrls.length > 0 ? uploadedMediaUrls : null,
+        sender: username,
+        isCurrentUser: true,
+        senderId: LocalStorageGetItem("userData")?.id,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Add to local messages immediately for better UX
+      setMessages((prevMessages) => [...prevMessages, newMsg]);
+
+      // Emit to server
+      socket.emit("send-message", newMsg);
+
+      // Clear inputs
+      setNewMessage("");
+      setMediaFiles([]);
+
+      // Stop typing when message is sent
+      handleStopTyping();
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // You might want to show an error message to the user here
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -84,7 +118,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
       isTypingRef.current = false;
       socket.emit("typing-stop");
     }
-    
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
@@ -94,20 +128,20 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
   const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setNewMessage(value);
-    
+
     const now = Date.now();
     lastInputTimeRef.current = now;
-    
+
     // Start typing if user is typing and not already indicated
     if (value.length > 0 && !isTypingRef.current) {
       handleStartTyping();
     }
-    
+
     // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    
+
     // Set timeout to stop typing after 1 second of no input
     if (value.length > 0) {
       typingTimeoutRef.current = setTimeout(() => {
@@ -125,12 +159,14 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
   // Format typing indicator text
   const getTypingText = () => {
     if (typingUsers.length === 0) return "";
-    
+
     // Filter out current user from typing users
-    const otherTypingUsers = typingUsers.filter(user => user.userName !== username);
-    
+    const otherTypingUsers = typingUsers.filter(
+      (user) => user.userName !== username
+    );
+
     if (otherTypingUsers.length === 0) return "";
-    
+
     if (otherTypingUsers.length === 1) {
       return `${otherTypingUsers[0].userName} is typing...`;
     } else if (otherTypingUsers.length === 2) {
@@ -138,17 +174,19 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
     } else if (otherTypingUsers.length === 3) {
       return `${otherTypingUsers[0].userName}, ${otherTypingUsers[1].userName}, and ${otherTypingUsers[2].userName} are typing...`;
     } else {
-      return `${otherTypingUsers[0].userName}, ${otherTypingUsers[1].userName}, and ${otherTypingUsers.length - 2} others are typing...`;
+      return `${otherTypingUsers[0].userName}, ${
+        otherTypingUsers[1].userName
+      }, and ${otherTypingUsers.length - 2} others are typing...`;
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
     const newFiles: MediaFile[] = [];
 
-    Array.from(files).forEach((file) => {
+    for (const file of files) {
       const fileId = `file-${Date.now()}-${Math.random()
         .toString(36)
         .substr(2, 9)}`;
@@ -159,8 +197,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
         name: file.name,
         type: file.type,
         url: fileUrl,
+        file: file, // Store the actual file object for upload
       });
-    });
+    }
 
     setMediaFiles((prev) => [...prev, ...newFiles]);
 
@@ -203,7 +242,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
   // Socket event listeners
   useEffect(() => {
     socket.on("receive-message", (message) => {
-      console.log("Received message:", message);
       setChat((prev) => [...prev, message]);
     });
 
@@ -245,7 +283,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header bar */}
-      <header className="h-16 border-b border-border flex items-center justify-between px-4 bg-card">
+      <header className="h-20 py-3 border-b border-border flex items-center justify-between px-4 bg-card">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -263,28 +301,35 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
               </span>
               LiveRoom
             </h1>
+          </div>
+        </div>
 
-            <div className="flex items-center gap-2 text-sm mt-1">
-              <span className="text-muted-foreground">Room:</span>
-              <span className="font-semibold text-white">{roomCode}</span>
-
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-md border border-gray-500 text-gray-300 hover:bg-gray-700 transition-colors duration-200"
-              >
-                {copied ? (
-                  <>
-                    <FiCheck className="text-green-400" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <FiClipboard />
-                    Copy
-                  </>
-                )}
-              </button>
-            </div>
+        <div>
+          <div className="flex items-center gap-2 text-sm mt-1">
+            <span className="text-muted-foreground">Room Name:</span>
+            <span className="font-semibold text-white">
+              {roomDetails?.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-sm mt-1">
+            <span className="text-muted-foreground">Room:</span>
+            <span className="font-semibold text-white">{roomCode}</span>
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-md border border-gray-500 text-gray-300 hover:bg-gray-700 transition-colors duration-200"
+            >
+              {copied ? (
+                <>
+                  <FiCheck className="text-green-400" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <FiClipboard />
+                  Copy
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -327,10 +372,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
               ))}
               {/* Enhanced typing indicator */}
               {typingUsers.length > 0 && getTypingText() && (
-                <TypingIndicator 
-                  isTyping={true} 
-                  username={getTypingText()} 
-                />
+                <TypingIndicator isTyping={true} username={getTypingText()} />
               )}
               <div ref={messageEndRef} />
             </div>
@@ -348,6 +390,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
                 size="icon"
                 className="shrink-0"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={mediaFiles.length > 0}
               >
                 <Image className="h-5 w-5" />
                 <span className="sr-only">Attach media</span>
@@ -357,7 +400,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
-                multiple
                 onChange={handleFileSelect}
                 accept="image/*,video/*,application/pdf"
               />
@@ -421,15 +463,24 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
                 {roomUsers?.map((user) => (
                   <div key={user.id} className="flex items-center gap-2">
                     <div className="relative">
-                      <Avatar>
-                        <AvatarImage src="https://github.com/shadcn.png" />
-                        <AvatarFallback>{user.user_name}</AvatarFallback>
+                      <Avatar className="border-2 border-background h-10 w-10 transition-transform hover:translate-y-[-5px]">
+                        {user.image ? (
+                          <AvatarImage src={user.image} alt={user.user_name} />
+                        ) : (
+                          <AvatarFallback
+                            className={getRandomColor(user.user_name)}
+                          >
+                            {getInitials(user.user_name)}
+                          </AvatarFallback>
+                        )}
                       </Avatar>
                       {user?.isOnline && (
                         <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border border-sidebar" />
                       )}
                       {/* Show typing indicator next to user */}
-                      {typingUsers.some(typingUser => typingUser.userName === user.user_name) && (
+                      {typingUsers.some(
+                        (typingUser) => typingUser.userName === user.user_name
+                      ) && (
                         <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
                       )}
                     </div>
@@ -439,7 +490,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
                         {user.user_name === username && " (you)"}
                       </span>
                       {/* Show typing status */}
-                      {typingUsers.some(typingUser => typingUser.userName === user.user_name) && (
+                      {typingUsers.some(
+                        (typingUser) => typingUser.userName === user.user_name
+                      ) && (
                         <span className="text-xs text-blue-400">typing...</span>
                       )}
                     </div>

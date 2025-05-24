@@ -51,7 +51,6 @@ const JoinRoomForm: React.FC<JoinRoomFormProps> = ({ onJoin }) => {
     }
 
     const res = await addToRoom(roomCode, username);
-    console.log(res)
     if(res?.data?.data) {
       onJoin(roomCode, username);
       LocalStorageSetItem("userData", res?.data?.data);

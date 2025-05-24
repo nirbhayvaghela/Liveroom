@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Copy, Check, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
+import { useToast } from "@/hooks/use-toast";
 
 export default function CreateRoom() {
   const navigate = useNavigate();
@@ -9,23 +10,26 @@ export default function CreateRoom() {
   const [generatedRoom, setGeneratedRoom] = useState(null);
   const [copied, setCopied] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const { toast } = useToast();
 
   const { createRoom } = useApi();
-  const generateRoomCode = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let result = "";
-    for (let i = 0; i < 12; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
-
   const handleCreateRoom = async () => {
     if (!roomName.trim()) return;
 
     setIsCreating(true);
 
     const res = await createRoom(roomName.trim());
+    if (!res?.data?.data) {
+      toast({
+        title: "Error",
+        description:
+          res?.response?.data?.message ??
+          "An Error occured, Please try again.",
+        variant: "destructive",
+      });
+      setIsCreating(false);
+      return;
+    }
     setGeneratedRoom({
       name: res.data.data.name,
       code: res.data.data.room_id,
