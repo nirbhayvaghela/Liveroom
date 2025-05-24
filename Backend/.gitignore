@@ -50,8 +50,6 @@ pids
 
 # Optional cache and debug folders
 .cache/
-tmp/
-temp/
 
 # Yarn/PNPM lock if using one over the other
 # Uncomment the one you don't use
