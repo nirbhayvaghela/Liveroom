@@ -10,7 +10,7 @@ import socket from "@/utils/socket";
 import {
   getInitials,
   getRandomColor,
-  LocalStorageGetItem,
+  SessionStorageGetItem,
 } from "@/utils/helpers";
 import { FiClipboard, FiCheck } from "react-icons/fi";
 import MediaPreview, { MediaFile } from "@/components/MediaPreview";
@@ -28,7 +28,7 @@ interface ChatRoomProps {
 }
 
 const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
-  const roomDetails = LocalStorageGetItem("userData")?.rooms;
+  const roomDetails = SessionStorageGetItem("userData")?.rooms;
   const [roomUsers, setRoomUsers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -72,7 +72,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
         media: uploadedMediaUrls.length > 0 ? uploadedMediaUrls : null,
         sender: username,
         isCurrentUser: true,
-        senderId: LocalStorageGetItem("userData")?.id,
+        senderId: SessionStorageGetItem("userData")?.id,
         timestamp: new Date().toISOString(),
       };
 
@@ -255,7 +255,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomCode, username, onLeave }) => {
 
   // Join room
   useEffect(() => {
-    const userData = LocalStorageGetItem("userData");
+    const userData = SessionStorageGetItem("userData");
     if (userData?.roomId && userData?.user_name) {
       socket.emit("join-room", userData?.roomId, userData?.user_name);
     }

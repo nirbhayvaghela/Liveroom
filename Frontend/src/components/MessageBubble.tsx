@@ -2,7 +2,7 @@ import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MediaFile } from "./MediaPreview";
 import { format } from "date-fns";
-import { LocalStorageGetItem } from "@/utils/helpers";
+import { SessionStorageGetItem } from "@/utils/helpers";
 
 interface MessageBubbleProps {
   message: {
@@ -31,7 +31,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
       .slice(0, 2);
 
   const isCurrentUser =
-    LocalStorageGetItem("userData")?.id === message?.sender?.id;
+    SessionStorageGetItem("userData")?.id === message?.sender?.id;
 
   return (
     <div

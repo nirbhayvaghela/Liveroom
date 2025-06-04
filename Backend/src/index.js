@@ -411,7 +411,7 @@ app.post("/upload", upload.single("media"), async (req, res) => {
     console.error("Upload error:", error);
     res.status(500).json({ message: "Failed to upload files" });
   }
-});
+ });
 
 server.listen(3000, () => {
   console.log(`Server is running on http://localhost:3000`);

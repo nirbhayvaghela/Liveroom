@@ -13,8 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "./ThemeToggle";
 import { useApi } from "@/hooks/useApi";
-import { LocalStorageGetItem, LocalStorageSetItem } from "@/utils/helpers";
-import socket from "@/utils/socket";
+import { SessionStorageSetItem } from "@/utils/helpers";
 import { useNavigate } from "react-router-dom";
 
 interface JoinRoomFormProps {
@@ -53,8 +52,8 @@ const JoinRoomForm: React.FC<JoinRoomFormProps> = ({ onJoin }) => {
     const res = await addToRoom(roomCode, username);
     if(res?.data?.data) {
       onJoin(roomCode, username);
-      localStorage.clear();
-      LocalStorageSetItem("userData", res?.data?.data);
+      sessionStorage.clear();
+      SessionStorageSetItem("userData", res?.data?.data);
       // socket.emit("join-room", roomCode, username);
     } else {
       toast({
